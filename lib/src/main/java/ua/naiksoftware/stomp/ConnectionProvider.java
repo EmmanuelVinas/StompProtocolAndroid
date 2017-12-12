@@ -23,4 +23,9 @@ public interface ConnectionProvider {
      * Subscribe this for receive #LifecycleEvent events
      */
     Flowable<LifecycleEvent> getLifecycleReceiver();
+
+    /**
+     * Disconnect the socket
+     */
+    void disconnect();
 }

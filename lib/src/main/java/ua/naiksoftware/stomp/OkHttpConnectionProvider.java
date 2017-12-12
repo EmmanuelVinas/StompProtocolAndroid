@@ -12,6 +12,7 @@ import java.util.TreeMap;
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
 import io.reactivex.FlowableEmitter;
+import io.reactivex.FlowableOnSubscribe;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -28,40 +29,25 @@ import okio.ByteString;
     private final Map<String, String> mConnectHttpHeaders;
     private final OkHttpClient mOkHttpClient;
 
-    private final List<FlowableEmitter<? super LifecycleEvent>> mLifecycleEmitters;
-    private final List<FlowableEmitter<? super String>> mMessagesEmitters;
-
     private WebSocket openedSocked;
 
-    private final Object mLifecycleLock = new Object();
+    private FlowableEmitter<? super String> mMessageEmitter;
+    private FlowableEmitter<? super LifecycleEvent> mLifecycleEmitter;
 
-
-    /* package */ OkHttpConnectionProvider(String uri, Map<String, String> connectHttpHeaders, OkHttpClient okHttpClient) {
+    OkHttpConnectionProvider(String uri, Map<String, String> connectHttpHeaders, OkHttpClient okHttpClient) {
         mUri = uri;
         mConnectHttpHeaders = connectHttpHeaders != null ? connectHttpHeaders : new HashMap<>();
-        mLifecycleEmitters = new ArrayList<>();
-        mMessagesEmitters = new ArrayList<>();
         mOkHttpClient = okHttpClient;
     }
 
+
     @Override
     public Flowable<String> messages() {
-        Flowable<String> flowable = Flowable.<String>create(mMessagesEmitters::add, BackpressureStrategy.BUFFER)
-                .doOnCancel(() -> {
-                    Iterator<FlowableEmitter<? super String>> iterator = mMessagesEmitters.iterator();
-                    while (iterator.hasNext()) {
-                        if (iterator.next().isCancelled()) iterator.remove();
-                    }
-
-                    if (mMessagesEmitters.size() < 1) {
-                        Log.d(TAG, "Close web socket connection now in thread " + Thread.currentThread());
-                        openedSocked.close(1000, "");
-                        openedSocked = null;
-                    }
-                });
+        final Flowable<String> flowable = Flowable.<String>create(emitter -> mMessageEmitter = emitter, BackpressureStrategy.BUFFER);
         createWebSocketConnection();
         return flowable;
     }
+
 
     private void createWebSocketConnection() {
 
@@ -106,13 +92,12 @@ import okio.ByteString;
                     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
                         emitLifecycleEvent(new LifecycleEvent(LifecycleEvent.Type.ERROR, new Exception(t)));
                     }
-                    
+
                     @Override
                     public void onClosing(final WebSocket webSocket, final int code, final String reason) {
                         webSocket.close(code, reason);
                     }
                 }
-
         );
     }
 
@@ -131,15 +116,22 @@ import okio.ByteString;
 
     @Override
     public Flowable<LifecycleEvent> getLifecycleReceiver() {
-        return Flowable.<LifecycleEvent>create(mLifecycleEmitters::add, BackpressureStrategy.BUFFER)
-                .doOnCancel(() -> {
-                    synchronized (mLifecycleLock) {
-                        Iterator<FlowableEmitter<? super LifecycleEvent>> iterator = mLifecycleEmitters.iterator();
-                        while (iterator.hasNext()) {
-                            if (iterator.next().isCancelled()) iterator.remove();
-                        }
-                    }
-                });
+        return Flowable.<LifecycleEvent>create(emitter->mLifecycleEmitter = emitter, BackpressureStrategy.BUFFER);
+    }
+
+    private void closeSocket() {
+        if (openedSocked != null) {
+            openedSocked.close(1000, "");
+            openedSocked = null;
+        }
+    }
+
+
+    @Override
+    public void disconnect() {
+        closeSocket();
+        mMessageEmitter = null;
+        mLifecycleEmitter = null;
     }
 
     private TreeMap<String, String> headersAsMap(Response response) {
@@ -158,18 +150,15 @@ import okio.ByteString;
     }
 
     private void emitLifecycleEvent(LifecycleEvent lifecycleEvent) {
-        synchronized (mLifecycleLock) {
-            Log.d(TAG, "Emit lifecycle event: " + lifecycleEvent.getType().name());
-            for (FlowableEmitter<? super LifecycleEvent> subscriber : mLifecycleEmitters) {
-                subscriber.onNext(lifecycleEvent);
-            }
+        if (mLifecycleEmitter != null){
+            mLifecycleEmitter.onNext(lifecycleEvent);
         }
     }
 
     private void emitMessage(String stompMessage) {
         Log.d(TAG, "Emit STOMP message: " + stompMessage);
-        for (FlowableEmitter<? super String> subscriber : mMessagesEmitters) {
-            subscriber.onNext(stompMessage);
+        if (mMessageEmitter != null) {
+            mMessageEmitter.onNext(stompMessage);
         }
     }
 }

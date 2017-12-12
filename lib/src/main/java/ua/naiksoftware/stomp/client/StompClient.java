@@ -156,9 +156,14 @@ public class StompClient {
     }
 
     public void disconnect() {
-        if (mMessagesDisposable != null) mMessagesDisposable.dispose();
-        if (mLifecycleDisposable != null) mLifecycleDisposable.dispose();
+        if (mMessagesDisposable != null) {
+            mMessagesDisposable.dispose();
+        }
+        if (mLifecycleDisposable != null) {
+            mLifecycleDisposable.dispose();
+        }
         mConnected = false;
+        mConnectionProvider.disconnect();
     }
 
     public Flowable<StompMessage> topic(String destinationPath) {

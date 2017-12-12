@@ -174,4 +174,11 @@ import io.reactivex.FlowableEmitter;
                     }
                 });
     }
+
+    @Override
+    public void disconnect() {
+        if (mWebSocketClient != null) {
+            mWebSocketClient.close();
+        }
+    }
 }
