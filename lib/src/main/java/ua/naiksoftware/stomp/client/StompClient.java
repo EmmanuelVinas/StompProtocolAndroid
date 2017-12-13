@@ -75,6 +75,19 @@ public class StompClient {
     public void connect(List<StompHeader> _headers, boolean reconnect) {
         if (reconnect) disconnect();
         if (mConnected) return;
+        mMessagesDisposable = mConnectionProvider.messages()
+                .map(StompMessage::from)
+                .subscribe(stompMessage -> {
+                    if (stompMessage.getStompCommand().equals(StompCommand.CONNECTED)) {
+                        mConnected = true;
+                        isConnecting = false;
+                        for (ConnectableFlowable<Void> flowable : mWaitConnectionFlowables) {
+                            flowable.connect();
+                        }
+                        mWaitConnectionFlowables.clear();
+                    }
+                    callSubscribers(stompMessage);
+                });
         mLifecycleDisposable = mConnectionProvider.getLifecycleReceiver()
                 .subscribe(lifecycleEvent -> {
                     switch (lifecycleEvent.getType()) {
@@ -97,21 +110,7 @@ public class StompClient {
                             break;
                     }
                 });
-
         isConnecting = true;
-        mMessagesDisposable = mConnectionProvider.messages()
-                .map(StompMessage::from)
-                .subscribe(stompMessage -> {
-                    if (stompMessage.getStompCommand().equals(StompCommand.CONNECTED)) {
-                        mConnected = true;
-                        isConnecting = false;
-                        for (ConnectableFlowable<Void> flowable : mWaitConnectionFlowables) {
-                            flowable.connect();
-                        }
-                        mWaitConnectionFlowables.clear();
-                    }
-                    callSubscribers(stompMessage);
-                });
     }
 
     public Flowable<Void> send(String destination) {

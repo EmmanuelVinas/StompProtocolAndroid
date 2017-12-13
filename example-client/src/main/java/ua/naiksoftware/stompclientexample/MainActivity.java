@@ -82,6 +82,7 @@ public class MainActivity extends AppCompatActivity {
                 .subscribe(topicMessage -> {
                     Log.d(TAG, "Received " + topicMessage.getPayload());
                     addItem(mGson.fromJson(topicMessage.getPayload(), EchoModel.class));
+                    toast(topicMessage.getPayload());
                 });
 
         mStompClient.connect();
