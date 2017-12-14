@@ -4,7 +4,6 @@ import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -12,7 +11,6 @@ import java.util.TreeMap;
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
 import io.reactivex.FlowableEmitter;
-import io.reactivex.FlowableOnSubscribe;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -32,7 +30,7 @@ import okio.ByteString;
     private WebSocket openedSocked;
 
     private FlowableEmitter<? super String> mMessageEmitter;
-    private FlowableEmitter<? super LifecycleEvent> mLifecycleEmitter;
+    private final List<FlowableEmitter<? super LifecycleEvent>> mLifecycleEmitters = new ArrayList<>();
 
     OkHttpConnectionProvider(String uri, Map<String, String> connectHttpHeaders, OkHttpClient okHttpClient) {
         mUri = uri;
@@ -116,7 +114,7 @@ import okio.ByteString;
 
     @Override
     public Flowable<LifecycleEvent> getLifecycleReceiver() {
-        return Flowable.<LifecycleEvent>create(emitter->mLifecycleEmitter = emitter, BackpressureStrategy.BUFFER);
+        return Flowable.<LifecycleEvent>create(mLifecycleEmitters::add, BackpressureStrategy.BUFFER);
     }
 
     private void closeSocket() {
@@ -131,7 +129,7 @@ import okio.ByteString;
     public void disconnect() {
         closeSocket();
         mMessageEmitter = null;
-        mLifecycleEmitter = null;
+        mLifecycleEmitters.clear();
     }
 
     private TreeMap<String, String> headersAsMap(Response response) {
@@ -150,8 +148,8 @@ import okio.ByteString;
     }
 
     private void emitLifecycleEvent(LifecycleEvent lifecycleEvent) {
-        if (mLifecycleEmitter != null){
-            mLifecycleEmitter.onNext(lifecycleEvent);
+        for (FlowableEmitter<? super LifecycleEvent> subscriber : mLifecycleEmitters) {
+            subscriber.onNext(lifecycleEvent);
         }
     }
 
