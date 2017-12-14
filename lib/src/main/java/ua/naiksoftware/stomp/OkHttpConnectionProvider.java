@@ -114,7 +114,11 @@ import okio.ByteString;
 
     @Override
     public Flowable<LifecycleEvent> getLifecycleReceiver() {
-        return Flowable.<LifecycleEvent>create(mLifecycleEmitters::add, BackpressureStrategy.BUFFER);
+        return Flowable.<LifecycleEvent>create(emitter->{
+            synchronized (mLifecycleEmitters) {
+                mLifecycleEmitters.add(emitter);
+            }
+        }, BackpressureStrategy.BUFFER);
     }
 
     private void closeSocket() {
@@ -129,7 +133,9 @@ import okio.ByteString;
     public void disconnect() {
         closeSocket();
         mMessageEmitter = null;
-        mLifecycleEmitters.clear();
+        synchronized (mLifecycleEmitters) {
+            mLifecycleEmitters.clear();
+        }
     }
 
     private TreeMap<String, String> headersAsMap(Response response) {
@@ -148,15 +154,18 @@ import okio.ByteString;
     }
 
     private void emitLifecycleEvent(LifecycleEvent lifecycleEvent) {
-        for (FlowableEmitter<? super LifecycleEvent> subscriber : mLifecycleEmitters) {
-            subscriber.onNext(lifecycleEvent);
+        synchronized (mLifecycleEmitters) {
+            for (FlowableEmitter<? super LifecycleEvent> subscriber : mLifecycleEmitters) {
+                subscriber.onNext(lifecycleEvent);
+            }
         }
     }
 
     private void emitMessage(String stompMessage) {
         Log.d(TAG, "Emit STOMP message: " + stompMessage);
-        if (mMessageEmitter != null) {
-            mMessageEmitter.onNext(stompMessage);
+        FlowableEmitter<? super String> emitter = mMessageEmitter;
+        if (emitter != null) {
+            emitter.onNext(stompMessage);
         }
     }
 }
