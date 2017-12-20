@@ -55,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void connectStomp(View view) {
-        mStompClient = Stomp.over(WebSocket.class, "ws://" + ANDROID_EMULATOR_LOCALHOST
+        mStompClient = Stomp.INSTANCE.over(WebSocket.class, "ws://" + ANDROID_EMULATOR_LOCALHOST
                 + ":" + RestClient.SERVER_PORT + "/example-endpoint/websocket");
 
         mStompClient.lifecycle()

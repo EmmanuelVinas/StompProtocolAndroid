@@ -7,9 +7,9 @@
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/example-client" />
-            <option value="$PROJECT_DIR$/lib" />
+            <option value="/mnt/Data/Dev/Sources/Ingenico/StompProtocolAndroid" />
+            <option value="/mnt/Data/Dev/Sources/Ingenico/StompProtocolAndroid/lib" />
+            <option value="/mnt/Data/Dev/Sources/Ingenico/StompProtocolAndroid/sample" />
           </set>
         </option>
         <option name="resolveModulePerSourceSet" value="false" />

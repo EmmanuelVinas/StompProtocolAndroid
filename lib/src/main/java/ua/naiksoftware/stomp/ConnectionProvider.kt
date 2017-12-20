@@ -1,31 +1,31 @@
-package ua.naiksoftware.stomp;
+package ua.naiksoftware.stomp
 
-import io.reactivex.Flowable;
+import io.reactivex.Flowable
 
 /**
  * Created by naik on 05.05.16.
  */
-public interface ConnectionProvider {
+interface ConnectionProvider {
+
+    /**
+     * Subscribe this for receive #LifecycleEvent events
+     */
+    val lifecycleReceiver: Flowable<LifecycleEvent>
 
     /**
      * Subscribe this for receive stomp messages
      */
-    Flowable<String> messages();
+    fun messages(): Flowable<String>
 
     /**
      * Sending stomp messages via you ConnectionProvider.
      * onError if not connected or error detected will be called, or onCompleted id sending started
      * TODO: send messages with ACK
      */
-    Flowable<Void> send(String stompMessage);
-
-    /**
-     * Subscribe this for receive #LifecycleEvent events
-     */
-    Flowable<LifecycleEvent> getLifecycleReceiver();
+    fun send(stompMessage: String): Flowable<Void>
 
     /**
      * Disconnect the socket
      */
-    void disconnect();
+    fun disconnect()
 }
